@@ -157,9 +157,10 @@ def get_depmods(vinca_conf, pkg_name):
     return rm_deps, add_deps
 
 
-def read_vinca_yaml(filepath):
+def read_vinca_yaml(base_path, vinca_file):
+    vinca_path = os.path.join(base_path, vinca_file)
     yaml = ruamel.yaml.YAML()
-    vinca_conf = yaml.load(open(filepath, "r"))
+    vinca_conf = yaml.load(open(vinca_path, "r"))
 
     # normalize paths to absolute paths
     conda_index = []
@@ -170,16 +171,16 @@ def read_vinca_yaml(filepath):
             conda_index.append(i)
 
     vinca_conf["conda_index"] = conda_index
-    patch_dir = Path(vinca_conf["patch_dir"]).absolute()
+    patch_dir = Path(os.path.join(base_path, vinca_conf["patch_dir"])).absolute()
     vinca_conf["_patch_dir"] = patch_dir
     patches = {}
 
     for x in glob.glob(os.path.join(vinca_conf["_patch_dir"], "*.patch")):
         splitted = os.path.basename(x).split(".")
         if splitted[0] not in patches:
-            patches[splitted[0]] = {"any": [], "osx": [], "linux": [], "win": []}
+            patches[splitted[0]] = {"any": [], "osx": [], "linux": [], "win": [], "emscripten": []}
         if len(splitted) == 3:
-            if splitted[1] in ("osx", "linux", "win"):
+            if splitted[1] in ("osx", "linux", "win" , "emscripten"):
                 patches[splitted[0]][splitted[1]].append(x)
                 continue
             if splitted[1] == "unix":
@@ -200,7 +201,7 @@ def read_vinca_yaml(filepath):
     config.skip_testing = vinca_conf.get("skip_testing", True)
 
     vinca_conf["_conda_indexes"] = get_conda_index(
-        vinca_conf, os.path.dirname(filepath)
+        vinca_conf, os.path.dirname(vinca_path)
     )
 
     vinca_conf["trigger_new_versions"] = vinca_conf.get("trigger_new_versions", False)
@@ -275,17 +276,22 @@ def generate_output(pkg_shortname, vinca_conf, distro, version, all_pkgs=None):
         output["build"]["script"] = {
             "sel(win)": "bld_catkin.bat",
             "sel(unix)": "build_catkin.sh",
+            "sel(emscripten)": "build_catkin.sh",
         }
 
     elif pkg.get_build_type() in ["ament_cmake"]:
         output["build"]["script"] = {
+            "sel(emscripten)": "build_ament_cmake.sh",
             "sel(win)": "bld_ament_cmake.bat",
             "sel(unix)": "build_ament_cmake.sh",
+            "sel(emscripten)": "build_ament_cmake.sh",
         }
     elif pkg.get_build_type() in ["ament_python"]:
         output["build"]["script"] = {
+            "sel(emscripten)": "build_ament_python.sh",
             "sel(win)": "bld_ament_python.bat",
             "sel(unix)": "build_ament_python.sh",
+            "sel(emscripten)": "build_ament_python.sh",
         }
         resolved_setuptools = resolve_pkgname("python-setuptools", vinca_conf, distro)
         output["requirements"]["host"].extend(resolved_setuptools)
@@ -598,9 +604,7 @@ def generate_source(distro, vinca_conf):
             patches.extend(pd[plat])
             if len(patches):
                 print(patches)
-                common_prefix = os.path.commonprefix((os.getcwd(), patches[0]))
-                print(common_prefix)
-                entry["patches"] = [os.path.relpath(p, common_prefix) for p in patches]
+                entry["patches"] = [os.path.relpath(p, os.getcwd()) for p in patches]
 
         source[pkg_name] = entry
 
@@ -647,7 +651,7 @@ def generate_source_version(distro, vinca_conf):
             plat = get_conda_subdir().split("-")[0]
             patches.extend(pd[plat])
             if len(patches):
-                entry["patches"] = patches
+                entry["patches"] = [os.path.relpath(p, os.getcwd()) for p in patches]
 
         source[pkg_name] = entry
 
@@ -714,7 +718,6 @@ def get_selected_packages(distro, vinca_conf):
 
 
 def parse_package(pkg, distro, vinca_conf, path):
-
     name = pkg["name"].replace("_", "-")
     final_name = f"ros-{distro.name}-{name}"
     recipe = {
@@ -875,8 +878,7 @@ def main():
     arguments = parse_command_line(sys.argv)
 
     base_dir = os.path.abspath(arguments.dir)
-    vinca_yaml = os.path.join(base_dir, "vinca.yaml")
-    vinca_conf = read_vinca_yaml(vinca_yaml)
+    vinca_conf = read_vinca_yaml(base_dir,  "vinca.yaml")
 
     from .template import generate_bld_ament_cmake
     from .template import generate_bld_ament_python
@@ -1020,9 +1022,9 @@ def main():
             outputs = generate_outputs(distro, vinca_conf)
 
         if arguments.multiple_file:
-            write_recipe(source, outputs, vinca_conf.get("build_number", 0), False)
+            write_recipe(base_dir, source, outputs, vinca_conf.get("build_number", 0), False)
         else:
-            write_recipe(source, outputs, vinca_conf.get("build_number", 0))
+            write_recipe(base_dir, source, outputs, vinca_conf.get("build_number", 0))
 
         if unsatisfied_deps:
             print("Unsatisfied dependencies:", unsatisfied_deps)

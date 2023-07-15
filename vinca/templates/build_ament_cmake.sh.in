@@ -44,6 +44,14 @@ if [[ $target_platform =~ linux.* ]]; then
   ln -s $GXX ${BUILD_PREFIX}/bin/g++
 fi;
 
+if [[ $target_platform =~ emscripten.* ]]; then
+  export EXTRA_CMAKE_ARGS=" \
+    -DCMAKE_TOOLCHAIN_FILE=~/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
+    -DCMAKE_CROSSCOMPILING_EMULATOR=~/emsdk/node/15.14.0_64bit/bin/node \
+    -DCMAKE_CROSSCOMPILING=TRUE \
+    "
+fi;
+
 cmake \
     -G "Ninja" \
     -DCMAKE_INSTALL_PREFIX=$PREFIX \
@@ -62,6 +70,7 @@ cmake \
     -DBUILD_SHARED_LIBS=ON  \
     -DBUILD_TESTING=OFF \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=$OSX_DEPLOYMENT_TARGET \
+    $EXTRA_CMAKE_ARGS \
     $SRC_DIR/$PKG_NAME/src/work
 
 cmake --build . --config Release --target install

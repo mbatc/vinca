@@ -39,7 +39,7 @@ def write_recipe_package(recipe):
         file.dump(recipe, stream)
 
 
-def write_recipe(source, outputs, build_number=0, single_file=True):
+def write_recipe(base_dir, source, outputs, build_number=0, single_file=True):
     # single_file = False
     if single_file:
         file = yaml.YAML()
@@ -51,7 +51,7 @@ def write_recipe(source, outputs, build_number=0, single_file=True):
         meta["outputs"] = outputs
         meta["package"]["version"] = f"{datetime.datetime.now():%Y.%m.%d}"
         meta["build"]["number"] = build_number
-        with open("recipe.yaml", "w") as stream:
+        with open(os.path.join(base_dir, "recipe.yaml"), "w") as stream:
             file.dump(meta, stream)
     else:
         for o in outputs:
@@ -69,7 +69,7 @@ def write_recipe(source, outputs, build_number=0, single_file=True):
 
             meta["build"]["number"] = build_number
 
-            recipe_dir = (Path("recipes") / o["package"]["name"]).absolute()
+            recipe_dir = (Path(base_dir) / Path("recipes") / o["package"]["name"]).absolute()
             os.makedirs(recipe_dir, exist_ok=True)
             with open(recipe_dir / "recipe.yaml", "w") as stream:
                 file.dump(meta, stream)
@@ -78,7 +78,7 @@ def write_recipe(source, outputs, build_number=0, single_file=True):
                 for p in meta["source"]["patches"]:
                     patch_dir, _ = os.path.split(p)
                     os.makedirs(recipe_dir / patch_dir, exist_ok=True)
-                    shutil.copyfile(p, recipe_dir / p)
+                    shutil.copyfile(os.path.join(base_dir, p), recipe_dir / p)
 
             for _, script in meta["build"]["script"].items():
                 shutil.copyfile(script, recipe_dir / script)
