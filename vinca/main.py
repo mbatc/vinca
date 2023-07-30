@@ -178,9 +178,9 @@ def read_vinca_yaml(base_path, vinca_file):
     for x in glob.glob(os.path.join(vinca_conf["_patch_dir"], "*.patch")):
         splitted = os.path.basename(x).split(".")
         if splitted[0] not in patches:
-            patches[splitted[0]] = {"any": [], "osx": [], "linux": [], "win": [], "emscripten": []}
+            patches[splitted[0]] = {"any": [], "osx": [], "linux": [], "win": [], "emscripten-32": []}
         if len(splitted) == 3:
-            if splitted[1] in ("osx", "linux", "win" , "emscripten"):
+            if splitted[1] in ("osx", "linux", "win" , "emscripten-32"):
                 patches[splitted[0]][splitted[1]].append(x)
                 continue
             if splitted[1] == "unix":
@@ -233,8 +233,9 @@ def generate_output(pkg_shortname, vinca_conf, distro, version, all_pkgs=None):
         "package": {"name": pkg_names[0], "version": version},
         "requirements": {
             "build": [
-                "{{ compiler('cxx') }}",
-                "{{ compiler('c') }}",
+                {"sel(target_platform != 'emscripten-32')": "{{ compiler('cxx') }}"},
+                {"sel(target_platform != 'emscripten-32')": "{{ compiler('c') }}"},
+                {"sel(target_platform == 'emscripten-32')": "emscripten_emscripten-32"},
                 "ninja",
                 "setuptools",
                 {"sel(unix)": "make"},
@@ -245,9 +246,7 @@ def generate_output(pkg_shortname, vinca_conf, distro, version, all_pkgs=None):
                 # {"sel(linux)": "sysroot_linux-64 2.17"},
                 "cmake",
                 {"sel(build_platform != target_platform)": "python"},
-                {
-                    "sel(build_platform != target_platform)": "cross-python_{{ target_platform }}"
-                },
+                {"sel(build_platform != target_platform)": "cross-python_{{ target_platform }}" },
                 {"sel(build_platform != target_platform)": "cython"},
                 {"sel(build_platform != target_platform)": "numpy"},
             ],
@@ -276,22 +275,20 @@ def generate_output(pkg_shortname, vinca_conf, distro, version, all_pkgs=None):
         output["build"]["script"] = {
             "sel(win)": "bld_catkin.bat",
             "sel(unix)": "build_catkin.sh",
-            "sel(emscripten)": "build_catkin.sh",
+            "sel(emscripten-32)": "build_catkin.sh",
         }
 
     elif pkg.get_build_type() in ["ament_cmake"]:
         output["build"]["script"] = {
-            "sel(emscripten)": "build_ament_cmake.sh",
             "sel(win)": "bld_ament_cmake.bat",
             "sel(unix)": "build_ament_cmake.sh",
-            "sel(emscripten)": "build_ament_cmake.sh",
+            "sel(emscripten-32)": "build_ament_cmake.sh",
         }
     elif pkg.get_build_type() in ["ament_python"]:
         output["build"]["script"] = {
-            "sel(emscripten)": "build_ament_python.sh",
             "sel(win)": "bld_ament_python.bat",
             "sel(unix)": "build_ament_python.sh",
-            "sel(emscripten)": "build_ament_python.sh",
+            "sel(emscripten-32)": "build_ament_python.sh",
         }
         resolved_setuptools = resolve_pkgname("python-setuptools", vinca_conf, distro)
         output["requirements"]["host"].extend(resolved_setuptools)
@@ -397,6 +394,13 @@ def generate_output(pkg_shortname, vinca_conf, distro, version, all_pkgs=None):
             return list(k.values())[0]
         return k
 
+    # For Emscripten, only install cmake as a build dependency.
+    # This should be ok as cmake is only really needed during builds, not when running packages.
+    # TODO: Add cmake to emscripten-forge
+    if "cmake" in output["requirements"]["run"]:
+        output["requirements"]["run"].remove("cmake")
+        output["requirements"]["run"].append({"sel(target_platform != 'emscripten-32')": "cmake"})
+
     output["requirements"]["run"] = sorted(output["requirements"]["run"], key=sortkey)
     output["requirements"]["host"] = sorted(output["requirements"]["host"], key=sortkey)
 
@@ -405,6 +409,7 @@ def generate_output(pkg_shortname, vinca_conf, distro, version, all_pkgs=None):
             "sel(osx and x86_64)": "__osx >={{ MACOSX_DEPLOYMENT_TARGET|default('10.14') }}"
         }
     ]
+    
 
     if f"ros-{config.ros_distro}-pybind11-vendor" in output["requirements"]["host"]:
         output["requirements"]["host"] += ["pybind11"]
@@ -736,16 +741,15 @@ def parse_package(pkg, distro, vinca_conf, path):
         "source": {},
         "requirements": {
             "build": [
-                "{{ compiler('cxx') }}",
-                "{{ compiler('c') }}",
+                {"sel(target_platform != 'emscripten-32')": "{{ compiler('cxx') }}"},
+                {"sel(target_platform != 'emscripten-32')": "{{ compiler('c') }}"},
+                {"sel(target_platform == 'emscripten-32')": "emscripten_emscripten-32"},
                 "ninja",
                 {"sel(unix)": "make"},
                 {"sel(unix)": "coreutils"},
                 "cmake",
                 {"sel(build_platform != target_platform)": "python"},
-                {
-                    "sel(build_platform != target_platform)": "cross-python_{{ target_platform }}"
-                },
+                {"sel(build_platform != target_platform)": "cross-python_{{ target_platform }}"},
                 {"sel(build_platform != target_platform)": "cython"},
                 {"sel(build_platform != target_platform)": "numpy"},
                 {"sel(build_platform != target_platform)": "pybind11"},
