@@ -32,6 +32,9 @@ echo "USING PKG_CONFIG_EXECUTABLE=${PKG_CONFIG_EXECUTABLE}"
 
 export ROS_PYTHON_VERSION=`$PYTHON_EXECUTABLE -c "import sys; print('%i.%i' % (sys.version_info[0:2]))"`
 echo "Using Python $ROS_PYTHON_VERSION"
+# Fix up SP_DIR which for some reason might contain a path to a wrong Python version
+FIXED_SP_DIR=$(echo $SP_DIR | sed -E "s/python[0-9]+\.[0-9]+/python$ROS_PYTHON_VERSION/")
+echo "Using site-package dir ${FIXED_SP_DIR}"
 
 if [[ $target_platform =~ emscripten.* ]]; then
   export CONDA_BUILD_CROSS_COMPILATION="1"
@@ -50,6 +53,7 @@ if [[ $target_platform =~ emscripten.* ]]; then
   fi;
 
   export EXTRA_CMAKE_ARGS=" \
+      -DCMAKE_BUILD_TYPE=Debug \
       -DRMW_IMPLEMENTATION=rmw_wasm_cpp
       -DCMAKE_INSTALL_PREFIX=$PREFIX    \
       -DCMAKE_FIND_ROOT_PATH=$PREFIX    \
@@ -67,16 +71,18 @@ if [[ $target_platform =~ emscripten.* ]]; then
    export CMAKE_BLD="cmake"
 else
   export EXTRA_CMAKE_ARGS=" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DBUILD_SHARED_LIBS=ON \
       -DPYTHON_EXECUTABLE=$PYTHON_EXECUTABLE \
       -DPython_EXECUTABLE=$PYTHON_EXECUTABLE \
       -DPython3_EXECUTABLE=$PYTHON_EXECUTABLE \
-      -DPYTHON_INSTALL_DIR=$SP_DIR \
+      -DPython3_FIND_STRATEGY=LOCATION \
+      -DPYTHON_INSTALL_DIR=$FIXED_SP_DIR \
+      -DPKG_CONFIG_EXECUTABLE=$PKG_CONFIG_EXECUTABLE \
       -DCMAKE_INSTALL_PREFIX=$PREFIX \
       -DCMAKE_PREFIX_PATH=$PREFIX \
       -DAMENT_PREFIX_PATH=$PREFIX \
-      -DCMAKE_INSTALL_LIBDIR=lib \
-      -DBUILD_SHARED_LIBS=ON \
-      -DPKG_CONFIG_EXECUTABLE=$PKG_CONFIG_EXECUTABLE \
+      -DCMAKE_INSTALL_LIBDIR=lib
     "
 
    export CMAKE_GEN="cmake"
@@ -112,9 +118,8 @@ fi
 
 export SKIP_TESTING=@(skip_testing)
 
-$CMAKE_GEN \
+$CMAKE_GEN --compile-no-warning-as-error \
          -G "Ninja" \
-         -DCMAKE_BUILD_TYPE=Release \
          -DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON \
          -DCMAKE_FIND_FRAMEWORK=LAST \
          -DSETUPTOOLS_DEB_LAYOUT=OFF \

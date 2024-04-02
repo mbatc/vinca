@@ -5,18 +5,21 @@ setlocal
 set "PYTHONPATH=%LIBRARY_PREFIX%\lib\site-packages;%SP_DIR%"
 
 pushd %SRC_DIR%\%PKG_NAME%\src\work
+set "PKG_NAME_SHORT=%PKG_NAME:*ros-@(ros_distro)-=%"
+set "PKG_NAME_SHORT=%PKG_NAME_SHORT:-=_%"
 
-:: If there is a setup.cfg that contains install-scripts then we should not
-:: set it here
-set "INSTALL_SCRIPTS_ARG=--install-scripts=%LIBRARY_PREFIX%\bin"
+:: If there is a setup.cfg that contains install-scripts then use pip to install
 findstr install[-_]scripts setup.cfg
 if "%errorlevel%" == "0" (
-  set INSTALL_SCRIPTS_ARG=
+    %PYTHON% setup.py install --single-version-externally-managed --record=files.txt ^
+        --prefix=%LIBRARY_PREFIX% ^
+        --install-lib=%SP_DIR% ^
+         --install-scripts=%LIBRARY_PREFIX%\lib\%PKG_NAME_SHORT%
+) else (
+    %PYTHON% setup.py install --single-version-externally-managed --record=files.txt ^
+        --prefix=%LIBRARY_PREFIX% ^
+        --install-lib=%SP_DIR% ^
+        --install-scripts=%LIBRARY_PREFIX%\bin
 )
-
-%PYTHON% setup.py install ^
-    --prefix=%LIBRARY_PREFIX% ^
-    --install-lib=%SP_DIR% ^
-    %INSTALL_SCRIPTS_ARG%
 
 if errorlevel 1 exit 1

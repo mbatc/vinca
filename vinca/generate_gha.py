@@ -281,7 +281,7 @@ def build_linux_pipeline(
                 "strategy": {"fail-fast": False},
                 "needs": prev_batch_keys,
                 "steps": [
-                    {"name": "Checkout code", "uses": "actions/checkout@v3"},
+                    {"name": "Checkout code", "uses": "actions/checkout@v4"},
                     {
                         "name": f"Build {' '.join([pkg for pkg in batch])}",
                         "env": {
@@ -336,7 +336,7 @@ def build_osx_pipeline(
                 "strategy": {"fail-fast": False},
                 "needs": prev_batch_keys,
                 "steps": [
-                    {"name": "Checkout code", "uses": "actions/checkout@v3"},
+                    {"name": "Checkout code", "uses": "actions/checkout@v4"},
                     {
                         "name": f"Build {' '.join([pkg for pkg in batch])}",
                         "env": {
@@ -392,20 +392,28 @@ def build_win_pipeline(stages, trigger_branch, outfile="win.yml", azure_template
                 "needs": prev_batch_keys,
                 "env": {"CONDA_BLD_PATH": "C:\\\\bld\\\\"},
                 "steps": [
-                    {"name": "Checkout code", "uses": "actions/checkout@v3"},
+                    {"name": "Checkout code", "uses": "actions/checkout@v4"},
                     {
-                        "uses": "conda-incubator/setup-miniconda@v2",
+                        "uses": "conda-incubator/setup-miniconda@v3",
                         "with": {
                             "channels": "conda-forge",
                             "miniforge-variant": "Mambaforge",
                             "miniforge-version": "latest",
                             "use-mamba": "true",
                             "channel-priority": "true",
+                            "python-version": "3.11",
+                            "activate-environment": "test",
                         },
                     },
                     {
-                        "run": "conda install -c conda-forge -n base --yes --quiet conda-build=3.25 pip mamba ruamel.yaml anaconda-client",
+                        "run": "mamba install -c conda-forge -n base --yes --quiet conda-build=3.27 pip mamba ruamel.yaml anaconda-client boa",
                         "name": "Install conda-build, boa and activate environment",
+                    },
+                    {
+                        "uses": "egor-tensin/cleanup-path@v4",
+                        "with": {
+                            "dirs": "C:\\Program Files\\Git\\usr\\bin;C:\\Program Files\\Git\\bin;C:\\Program Files\\Git\\cmd;C:\\Program Files\\Git\\mingw64\\bin"
+                        },
                     },
                     {
                         "shell": "cmd",
@@ -479,9 +487,13 @@ def main():
         requirements = {}
 
         for pkg in full_tree + additional_recipes:
-            requirements[pkg["package"]["name"]] = pkg["requirements"].get(
+            if "outputs" in pkg:
+                req_section = pkg["outputs"][0]["requirements"]
+            else:
+                req_section = pkg["requirements"]
+            requirements[pkg["package"]["name"]] = req_section.get(
                 "host", []
-            ) + pkg["requirements"].get("run", [])
+            ) + req_section.get("run", [])
 
         # sort out requirements that are not built in this run
         for pkg_name, reqs in requirements.items():
@@ -566,7 +578,7 @@ def main():
         build_osx_pipeline(
             stages,
             args.trigger_branch,
-            vm_imagename="macOS-11",
+            vm_imagename="macos-14",
             outfile="osx_arm64.yml",
             script=azure_osx_arm64_script,
         )

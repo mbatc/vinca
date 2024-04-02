@@ -266,14 +266,11 @@ def generate_output(pkg_shortname, vinca_conf, distro, version, all_pkgs=None):
     output["requirements"]["run"].extend(resolved_python)
     output["requirements"]["host"].extend(resolved_python)
     if pkg.get_build_type() in ["cmake", "catkin"]:
-        # TODO find a way to get the conda "comments" with ruamel
-        # output['script'] = ['bld_catkin.bat  # [win]', 'build_catkin.sh  # [unix]']
         output["build"]["script"] = {
             "sel(win)": "bld_catkin.bat",
             "sel(unix)": "build_catkin.sh",
             "sel(emscripten-wasm32)": "build_catkin.sh",
         }
-
     elif pkg.get_build_type() in ["ament_cmake"]:
         output["build"]["script"] = {
             "sel(win)": "bld_ament_cmake.bat",
@@ -461,16 +458,6 @@ def generate_output(pkg_shortname, vinca_conf, distro, version, all_pkgs=None):
             output["requirements"]["host"].remove("git")
         output["requirements"]["host"] += [
             {"sel(build_platform == target_platform)": "git"}
-        ]
-
-    # fixup problems with udev (which is mapped to libusb):
-    if (
-        "libusb" in output["requirements"]["host"]
-        or "ros-" + distro.name + "-lusb" in output["requirements"]["host"]
-    ):
-        output["requirements"]["build"] += [
-            {"sel(linux)": "{{ cdt('libudev') }}"},
-            {"sel(linux)": "{{ cdt('libudev-devel') }}"},
         ]
 
     # fix up OPENGL support for Unix
