@@ -29,6 +29,7 @@ def read_azure_script(fn):
 
 
 azure_linux_script = lu(read_azure_script("linux.sh"))
+azure_emscripten_wasm32_script = lu(read_azure_script("emscripten_wasm32.sh"))
 azure_osx_script = lu(read_azure_script("osx_64.sh"))
 azure_osx_arm64_script = lu(read_azure_script("osx_arm64.sh"))
 azure_win_preconfig_script = lu(read_azure_script("win_preconfig.bat"))
@@ -240,7 +241,6 @@ def get_stage_name(batch):
             stage_name.append(pkg)
     return " ".join(stage_name)
 
-
 def build_linux_pipeline(
     stages,
     trigger_branch,
@@ -249,9 +249,10 @@ def build_linux_pipeline(
     docker_image=None,
     runs_on=None,
     outfile="linux.yml",
+    pipeline_name="build_linux"
 ):
 
-    blurb = {"jobs": {}, "name": "build_linux"}
+    blurb = {"jobs": {}, "name": pipeline_name }
 
     if runs_on is None:
         runs_on = "ubuntu-latest"
@@ -302,7 +303,6 @@ def build_linux_pipeline(
     azure_template["on"] = {"push": {"branches": [trigger_branch]}}
 
     dump_for_gha(azure_template, outfile)
-
 
 def build_osx_pipeline(
     stages,
@@ -584,3 +584,7 @@ def main():
     # windows
     if args.platform == "win-64":
         build_win_pipeline(stages, args.trigger_branch, outfile="win.yml")
+
+    if args.platform == "emscripten-wasm32":
+        build_linux_pipeline(stages, args.trigger_branch, outfile="emscripten_wasm32.yml", pipeline_name="emscripten_wasm32")
+
