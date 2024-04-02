@@ -53,6 +53,7 @@ if [[ $target_platform =~ emscripten.* ]]; then
   fi;
 
   export EXTRA_CMAKE_ARGS=" \
+      -DCMAKE_BUILD_TYPE=Debug \
       -DRMW_IMPLEMENTATION=rmw_wasm_cpp
       -DCMAKE_INSTALL_PREFIX=$PREFIX    \
       -DCMAKE_FIND_ROOT_PATH=$PREFIX    \
@@ -70,6 +71,7 @@ if [[ $target_platform =~ emscripten.* ]]; then
    export CMAKE_BLD="cmake"
 else
   export EXTRA_CMAKE_ARGS=" \
+      -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_SHARED_LIBS=ON \
       -DPYTHON_EXECUTABLE=$PYTHON_EXECUTABLE \
       -DPython_EXECUTABLE=$PYTHON_EXECUTABLE \
@@ -118,7 +120,6 @@ export SKIP_TESTING=@(skip_testing)
 
 $CMAKE_GEN --compile-no-warning-as-error \
          -G "Ninja" \
-         -DCMAKE_BUILD_TYPE=Release \
          -DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON \
          -DCMAKE_FIND_FRAMEWORK=LAST \
          -DSETUPTOOLS_DEB_LAYOUT=OFF \
