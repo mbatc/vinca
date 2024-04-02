@@ -598,5 +598,10 @@ def main():
         build_win_pipeline(stages, args.trigger_branch, outfile="win.yml")
 
     if args.platform == "emscripten-wasm32":
-        build_linux_pipeline(stages, args.trigger_branch, outfile="emscripten_wasm32.yml", pipeline_name="emscripten_wasm32")
-
+        build_linux_pipeline(
+            stages,
+            args.trigger_branch,
+            outfile="emscripten_wasm32.yml",
+            script=azure_emscripten_wasm32_script,
+            pipeline_name="emscripten_wasm32"
+        )
