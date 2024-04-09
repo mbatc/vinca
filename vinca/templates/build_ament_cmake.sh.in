@@ -8,6 +8,8 @@ cd build
 # necessary for correctly linking SIP files (from python_qt_bindings)
 export LINK=$CXX
 
+export SKIP_TESTING=@(skip_testing)
+
 if [[ "$CONDA_BUILD_CROSS_COMPILATION" != "1" ]]; then
   PYTHON_EXECUTABLE=$PREFIX/bin/python
   PKG_CONFIG_EXECUTABLE=$PREFIX/bin/pkg-config
